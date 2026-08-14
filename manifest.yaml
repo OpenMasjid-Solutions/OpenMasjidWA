@@ -10,7 +10,7 @@ id: openwa
 name: WhatsApp Gateway
 tagline: Let the masjid send WhatsApp messages from a number of its own
 category: utilities
-version: 0.1.0
+version: 0.2.0-dev.1
 author: rmyndharis (OpenWA) — packaged for OpenMasjidOS by OpenMasjid-Solutions
 license: MIT
 icon: icon.svg
