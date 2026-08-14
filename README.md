@@ -34,25 +34,33 @@ one-click app store can accept. So this repo carries a minimal, least-privilege
 stack — one container, one named volume, configuration entirely from settings — and
 nothing else.
 
-## The one manual step, and why
+## The manual step, and why
 
-OpenMasjidOS drives everything else, but **someone must create the OpenWA session by
-hand, once.** Two facts combine to force it:
+OpenMasjidOS drives everything else, but **someone must create AND START the OpenWA
+session by hand, once.** Three facts combine to force it:
 
 1. **OpenWA has no way to create a session from configuration.** There is no env var
    for it in v0.18.0 — `AUTO_START_SESSIONS` only re-starts a session that was
-   *already* linked, which is why we set it (a reboot does not cost you a re-link).
+   *already* linked (it selects rows with a non-null `phone`), which is why we set it:
+   a reboot does not cost you a re-link, but it cannot bootstrap anything.
 2. **The session id is a server-generated UUID.** Every session route is declared
    `@Param('id', ParseUUIDPipe)`; `POST /api/sessions` takes a `name`, and OpenWA
    assigns the id. So the id cannot be agreed in advance by either side.
+3. **Creating a session does not start it.** `SessionService.create()` persists the
+   row with `status: CREATED` and registers no engine, and the dashboard's create
+   form does not start it either. `POST /api/sessions/{id}/pairing-code` then throws
+   `BadRequestException('Session is not started. Call POST /sessions/:id/start
+   first.')` — and OpenMasjidOS discards the gateway's response body, so the admin
+   sees a bare `gateway returned 400` with no clue what to do.
 
-The admin therefore opens this app once, creates a session, copies its id into
-OpenMasjidOS → Settings → WhatsApp, and never comes back. Linking the number itself
-(the pairing code) does happen in OpenMasjidOS.
+So the documented flow is: create the session, press **Start**, then press **View**
+and copy the full **Session ID** (the card truncates it to 12 characters and offers
+no copy control — the details panel is the only place the whole UUID is shown).
 
-**This step disappears** if OpenMasjidOS calls `POST /api/sessions` itself and stores
-the returned id — the platform already holds the key and the base URL, so it is a
-platform-side change, not a packaging one.
+**All of this disappears** if OpenMasjidOS calls `POST /api/sessions` and then
+`POST /api/sessions/{id}/start` itself, storing the returned id — it already holds
+the key and the base URL. That is a platform-side change, not a packaging one, and
+it is the single biggest usability win available here.
 
 ## Configuration decisions worth knowing
 
