@@ -10,7 +10,7 @@ id: openwa
 name: WhatsApp Gateway
 tagline: Let the masjid send WhatsApp messages from a number of its own
 category: utilities
-version: 0.2.0-dev.1
+version: 0.2.0-dev.2
 author: rmyndharis (OpenWA) — packaged for OpenMasjidOS by OpenMasjid-Solutions
 license: MIT
 icon: icon.svg
@@ -63,14 +63,21 @@ description: |
      somewhere safe — it is applied when the app first starts, so editing it later
      will not replace it. To change it, use this app's own **API keys** screen.
   2. Open this app once (the **Open** button) and create a session: **Sessions →
-     New**. Name it anything — `masjid` is fine — then copy the **session ID** it
-     shows you. It is a long code like `3f2a…`, not the name you typed.
-  3. In **OpenMasjidOS → Settings → WhatsApp**, paste the gateway key and that
-     session ID, then link your number with the pairing code it gives you.
+     New**. Name it anything — `masjid` is fine.
+  3. Press **Start** on that session. This step is easy to miss and nothing works
+     without it: a session that has only been created has no connection behind it
+     yet, so linking fails and OpenMasjidOS can only report `gateway returned 400`.
+  4. Press **View** on the session and copy the **Session ID** from the details
+     panel — all of it. The session card shows only the first few characters, which
+     is not enough. It is a long code like
+     `3f2a1b4c-9d2e-4f6a-b8c1-0d5e7a9f2b3c`, not the name you typed.
+  5. In **OpenMasjidOS → Settings → WhatsApp**, paste the gateway key and that
+     Session ID, then link your number with the pairing code it gives you.
 
-  Step 2 is a one-time detour into this app's own screen, and we would rather it
-  weren't: OpenWA has no way to create a session from its settings, and only it can
-  mint the session ID. Everything after that happens in OpenMasjidOS.
+  Steps 2–4 are a one-time detour into this app's own screen, and we would rather
+  they weren't: OpenWA has no way to create or start a session from its settings,
+  and only it can mint the Session ID. Everything after that happens in
+  OpenMasjidOS, and you should not need to come back here.
 
   ## Kept on your network
 
