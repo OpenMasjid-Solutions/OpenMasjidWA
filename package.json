@@ -1,0 +1,16 @@
+{
+  "name": "openmasjid-wa",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Packaging only: OpenWA (MIT, rmyndharis/OpenWA) as an OpenMasjidOS app. No application code lives here.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-package.mjs",
+    "sync": "node scripts/sync-upstream.mjs",
+    "sync:dry": "node scripts/sync-upstream.mjs --dry-run"
+  },
+  "devDependencies": {
+    "yaml": "^2.8.1"
+  }
+}

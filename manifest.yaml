@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 OpenMasjid-Solutions
+#
+# NOTE ON VERSIONS: `version` here is the version of THIS PACKAGING, not of OpenWA.
+# OpenWA's own version is pinned in docker-compose.yml (image tag + @sha256 digest).
+# On the dev branch this must be a prerelease AHEAD of the stable release — stable
+# 0.1.0, dev 0.2.0-dev.1 — or the catalog's freshness floor falls the dev entry back
+# to stable. See OpenMasjidAPPS CLAUDE.md §3b.
+id: openwa
+name: WhatsApp Gateway
+tagline: Let the masjid send WhatsApp messages from a number of its own
+category: utilities
+version: 0.1.0
+author: rmyndharis (OpenWA) — packaged for OpenMasjidOS by OpenMasjid-Solutions
+license: MIT
+icon: icon.svg
+# screenshots: intentionally absent until someone captures REAL ones from a running
+# install (this app's Sessions screen, and OpenMasjidOS > Settings > WhatsApp linked).
+# A drawn mock-up of a UI we do not control would misrepresent what a masjid gets.
+
+description: |
+  This app lets OpenMasjidOS send WhatsApp messages — fee reminders to parents,
+  alerts to your team — from a WhatsApp number the masjid controls.
+
+  It is a **transport**, not something you use day to day. Once it is linked you
+  can forget it is here: you set WhatsApp up in **OpenMasjidOS → Settings →
+  WhatsApp**, and the apps that send (the madrasah app first) ask OpenMasjidOS to
+  send for them. Nothing else in the masjid talks to WhatsApp directly, and no app
+  ever sees this gateway's key.
+
+  That matters because the risk below belongs to the *number*, not to any one app:
+  OpenMasjidOS therefore keeps a single, paced, one-at-a-time send queue for the
+  whole masjid, with quiet hours and a warm-up period for a newly linked number.
+
+  ## ⚠️ Please read before you link a number
+
+  **This is an unofficial WhatsApp client.** It signs in the same way WhatsApp Web
+  does, not through Meta's official business API. WhatsApp does look for automated
+  use, and **the number you link can be restricted or banned.** No setting here can
+  make that risk zero.
+
+  **Link a dedicated number the masjid can afford to lose — never the masjid's main
+  line**, and never a personal number. If the number is blocked you cannot appeal
+  through us; that is between the number's owner and WhatsApp. Keep email or SMS as
+  the fallback for anything that truly must arrive.
+
+  ## What it needs from your hardware
+
+  The safer of the two engines (`whatsapp-web.js`, the default) works by running a
+  real headless Chromium browser, which is why WhatsApp finds it harder to
+  distinguish from a person. That browser costs **roughly 300–500 MB of memory,
+  continuously, for as long as the number stays linked.**
+
+  On a **2 GB Raspberry Pi this is a heavy app** — it will run, but budget for it
+  before installing, and expect little room left for other apps. If memory is tight
+  you can switch the engine to `baileys` (about 30–80 MB), but understand the
+  trade: upstream rates its ban risk as **higher**, because it speaks WhatsApp's
+  protocol directly and is easier to fingerprint.
+
+  ## Setting it up
+
+  1. Install this app. Invent a long random **gateway key** when asked, and keep it
+     somewhere safe — it is applied when the app first starts, so editing it later
+     will not replace it. To change it, use this app's own **API keys** screen.
+  2. Open this app once (the **Open** button) and create a session: **Sessions →
+     New**. Name it anything — `masjid` is fine — then copy the **session ID** it
+     shows you. It is a long code like `3f2a…`, not the name you typed.
+  3. In **OpenMasjidOS → Settings → WhatsApp**, paste the gateway key and that
+     session ID, then link your number with the pairing code it gives you.
+
+  Step 2 is a one-time detour into this app's own screen, and we would rather it
+  weren't: OpenWA has no way to create a session from its settings, and only it can
+  mint the session ID. Everything after that happens in OpenMasjidOS.
+
+  ## Kept on your network
+
+  The gateway is reachable on the masjid's own network only. It is deliberately not
+  offered over the internet — it holds a live, logged-in WhatsApp session, and that
+  is not something to publish. Keep the gateway key secret; anyone on your network
+  who has it can send as your number.
+
+  ## Credits
+
+  OpenWA is free, open-source software by
+  [rmyndharis](https://github.com/rmyndharis/OpenWA), MIT-licensed. We package it
+  unmodified and pin it by image digest; the packaging is maintained by
+  OpenMasjid-Solutions.
+
+settings:
+  - key: OPENWA_API_KEY
+    label: Gateway key — invent a long random one, letters and numbers only, and paste the same value into OpenMasjidOS → Settings → WhatsApp. Set on first start only.
+    type: password
+  - key: OPENWA_ENGINE
+    label: Engine — whatsapp-web.js is safer for the number but uses 300–500 MB; baileys uses 30–80 MB and carries a higher ban risk
+    type: select
+    options:
+      - whatsapp-web.js
+      - baileys
+    default: whatsapp-web.js
+  - key: OPENWA_MEM_LIMIT
+    label: Memory ceiling for this app — 2 GB suits one whatsapp-web.js session; drop to 1 GB only if you chose baileys
+    type: select
+    options:
+      - 1g
+      - 2g
+      - 4g
+    default: 2g
+
+ports:
+  - container: 2785
+    label: Gateway API and setup screen

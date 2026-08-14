@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 OpenMasjid-Solutions
+#
+# Follow upstream OpenWA releases onto the DEV CHANNEL, automatically.
+#
+# NOTE ON WHERE THIS FILE LIVES: a `schedule:` trigger only fires from the repository's
+# DEFAULT branch, so this workflow must exist on `main` even though every change it
+# makes lands on `dev`. Editing it on `dev` alone changes nothing about what runs.
+#
+# It never touches `main` and never tags a release. Promotion to stable — the thing
+# that reaches every masjid — stays a human decision; see scripts/sync-upstream.mjs
+# for why that split is the whole point.
+name: Track upstream OpenWA
+
+on:
+  schedule:
+    - cron: '23 5 * * *' # daily; upstream ships every few days
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: track-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      # Job level on purpose: a step's `if:` cannot read the `secrets` context, and
+      # cannot read an `env:` declared on that same step either.
+      CATALOG_DISPATCH_TOKEN: ${{ secrets.CATALOG_DISPATCH_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: dev
+          # Tags are needed: the version bump has to stay ahead of the newest stable
+          # release, and that is read from `git tag`.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Resolve the newest upstream release and pin its digest
+        id: sync
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/sync-upstream.mjs
+
+      # Belt and braces: an automated edit must still leave a file the catalog will
+      # accept. Without this, a malformed image line is only caught by the catalog
+      # build — after this branch has already moved and testers have pulled it.
+      - name: Check what the edit produced
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          npm install --no-save --silent yaml
+          node scripts/check-package.mjs
+
+      - name: Commit to dev
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          # This job checked out `dev` and may only ever write to `dev`.
+          test "$(git rev-parse --abbrev-ref HEAD)" = "dev"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docker-compose.yml manifest.yaml
+          git commit -m "chore(dev): track OpenWA ${{ steps.sync.outputs.upstream }} (${{ steps.sync.outputs.version }})
+
+          Image pinned to ${{ steps.sync.outputs.digest }}.
+          Dev channel only — stable is promoted by hand."
+          git push origin HEAD:refs/heads/dev
+
+      # Optional: nudge the catalog to rebuild now instead of waiting for its hourly
+      # cron. Needs a PAT with `repo` on OpenMasjidAPPS in CATALOG_DISPATCH_TOKEN;
+      # without the secret this step is skipped and the hourly rebuild still picks the
+      # change up — the schedule is the floor under this, not the other way round.
+      - name: Ask the catalog to rebuild
+        if: steps.sync.outputs.changed == 'true' && env.CATALOG_DISPATCH_TOKEN != ''
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer $CATALOG_DISPATCH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/OpenMasjid-Solutions/OpenMasjidAPPS/dispatches \
+            -d '{"event_type":"rebuild-catalog"}'

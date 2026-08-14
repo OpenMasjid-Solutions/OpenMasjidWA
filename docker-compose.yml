@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 OpenMasjid-Solutions
+#
+# OpenWA, packaged for OpenMasjidOS.
+#
+# This is a PACKAGING repo: the software is OpenWA (MIT, rmyndharis/OpenWA) and we
+# run its published image unmodified. Upstream's own docker-compose.yml cannot be
+# listed in the catalog — it builds from source, mounts the host Docker socket via a
+# socket proxy, and attaches to pre-existing external volumes/networks, all of which
+# both the catalog build and OpenMasjidOS refuse at install. So this file is a
+# minimal, least-privilege single-service stack: one container, one named volume,
+# everything else driven from settings the admin fills in once.
+#
+# WHAT TALKS TO THIS: only OpenMasjidOS. It finds the gateway on
+# 127.0.0.1:<published port> and owns the single paced send queue; apps ask the OS
+# to send (POST /api/fabric/whatsapp) and never reach this container themselves.
+services:
+  openwa:
+    # Digest-pinned: the tag alone can be moved to different content.
+    # ghcr.io/rmyndharis/openwa:0.18.0
+    image: ghcr.io/rmyndharis/openwa:0.18.0@sha256:e576c2152a2e65704f8a57e6d3057e89593d73feb34ce71744663f41b03b2803
+    restart: unless-stopped
+    # The web UI and the REST API are the same port. OpenMasjidOS reads the FIRST
+    # published port to find the gateway, so this must stay first and stay published.
+    # Published on the LAN (not 127.0.0.1) because the admin has to open this UI once
+    # to create the session — see the description. NOT internet-exposed: the manifest
+    # deliberately does not opt into a tunnel.
+    ports:
+      - '2785:2785'
+    environment:
+      - NODE_ENV=production
+      - PORT=2785
+      - LOG_LEVEL=info
+
+      # ── Auth ────────────────────────────────────────────────────────────────
+      # Seeds OpenWA's first API key on FIRST BOOT (auth.service.ts:resolveSeedApiKey).
+      # The admin types the same value into OpenMasjidOS > Settings > WhatsApp, which
+      # sends it as the X-API-Key header. Changing it later does NOT rotate the key —
+      # the seed only applies while no keys exist.
+      - API_MASTER_KEY=${OPENWA_API_KEY}
+      # Never seed the well-known insecure `dev-admin-key`.
+      - ALLOW_DEV_API_KEY=false
+
+      # ── Engine ──────────────────────────────────────────────────────────────
+      # whatsapp-web.js drives a real headless Chromium, which upstream rates as the
+      # LOWER ban risk of the two engines — and the higher memory cost (~300-500 MB
+      # per session). baileys is ~30-80 MB and easier for WhatsApp to fingerprint.
+      # The `:-` fallbacks matter: a blank answer would otherwise reach the container
+      # as an empty string, which OpenWA treats as "pinned to nothing".
+      - ENGINE_TYPE=${OPENWA_ENGINE:-whatsapp-web.js}
+      - PUPPETEER_HEADLESS=true
+      - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+      # Re-start an already-linked session after a restart or a host reboot, so the
+      # masjid does not have to re-link. (It cannot CREATE a session — see the README.)
+      - AUTO_START_SESSIONS=true
+      # One masjid, one number. Also the RAM guard: each extra Chromium session is
+      # another ~300-500 MB. Upstream's default of 0 means unlimited.
+      - MAX_CONCURRENT_SESSIONS=1
+      # OpenMasjidOS sends its own typing indicators, scaled to message length, from
+      # its queue. Leaving upstream's on would stack a second delay on every send.
+      - SIMULATE_TYPING=false
+      # Only read by baileys: upstream's default keeps the gateway marked online,
+      # which silences push notifications on the linked phone for as long as it runs.
+      - BAILEYS_MARK_ONLINE_ON_CONNECT=false
+
+      # ── Storage: SQLite + local files on the named volume ────────────────────
+      - DATABASE_TYPE=sqlite
+      - DATABASE_NAME=/app/data/openwa.sqlite
+      - DATABASE_SYNCHRONIZE=false
+      - SESSION_DATA_PATH=/app/data/sessions
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/data/media
+      - REDIS_ENABLED=false
+      - CACHE_ENABLED=false
+
+      # ── Dashboard over plain HTTP ───────────────────────────────────────────
+      # OpenMasjidOS serves apps over http:// (https: is reserved for Stripe apps).
+      # Left at its production default, the dashboard's CSP upgrades its own scripts
+      # to https://, the plain-HTTP server cannot answer, and the page renders BLANK
+      # WHITE — upstream #611/#731. This is what keeps the setup page usable.
+      - CSP_UPGRADE_INSECURE_REQUESTS=false
+      - SERVE_DASHBOARD=true
+
+      # ── HTTP rate limits ────────────────────────────────────────────────────
+      # This is the API throttle, not the anti-ban send governor. Sized for the real
+      # caller: OpenMasjidOS spends ~5 requests per message (presence, typing on/off,
+      # the send, plus status polls) and its own ceiling is 12/hour, so ~60 requests
+      # an hour — while leaving the admin's dashboard room to breathe during setup.
+      - RATE_LIMIT_SHORT_TTL=1000
+      - RATE_LIMIT_SHORT_LIMIT=10
+      - RATE_LIMIT_MEDIUM_TTL=60000
+      - RATE_LIMIT_MEDIUM_LIMIT=60
+      - RATE_LIMIT_LONG_TTL=3600000
+      - RATE_LIMIT_LONG_LIMIT=600
+
+      # ── Upstream's own send pacer ───────────────────────────────────────────
+      # OFF, on purpose. OpenMasjidOS owns the ONE paced queue for the whole masjid
+      # (serialised, jittered, warm-up ramp, quiet hours, per-recipient cooldown).
+      # Upstream's governor is a second, independent one: when it refuses it returns
+      # HTTP 429, which the platform's queue currently reads as a failed send rather
+      # than "retry after N seconds", so a message would be dropped, not delayed.
+      # Turn this on only if the platform learns to honour retryAfterSeconds.
+      - SEND_PACING_ENABLED=false
+    volumes:
+      # The WhatsApp session lives here. Without it every restart forces a re-link.
+      - openwa-data:/app/data
+    # A Chromium per session is the memory story; cap it so a runaway cannot take the
+    # whole box down with it. Raise if you deliberately run more than one session.
+    mem_limit: ${OPENWA_MEM_LIMIT:-2g}
+    # Chromium is multi-process and WhatsApp Web is process-heavy; upstream found 512
+    # already kills a session mid-spawn. This is a fork-bomb guard, not an allocation.
+    pids_limit: 2048
+    stop_grace_period: 45s
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:2785/api/health/ready', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  openwa-data:

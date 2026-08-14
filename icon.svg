@@ -1,0 +1,33 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- Copyright (C) 2026 OpenMasjid-Solutions -->
+<!-- Original artwork. Deliberately not a WhatsApp mark: a plain message bubble on the
+     Sakina palette, so the tile reads as "the masjid's messaging transport" and never
+     implies an official Meta product. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="WhatsApp Gateway">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f6f5c"/>
+      <stop offset="1" stop-color="#12483d"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6f2ee"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+
+  <!-- A soft highlight so the tile has the same glassy depth as the dock icons. -->
+  <rect width="512" height="512" rx="112" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="4"/>
+
+  <!-- Message bubble with a tail at the lower left. -->
+  <path fill="url(#bubble)"
+        d="M138 116h236c30.9 0 56 25.1 56 56v152c0 30.9-25.1 56-56 56H236l-74 60c-8.2 6.6-20.4 0.8-20.4-9.7V380h-3.6c-30.9 0-56-25.1-56-56V172c0-30.9 25.1-56 56-56z"/>
+
+  <!-- Three dots: a message in flight, legible down to 16px. -->
+  <g fill="#1f6f5c">
+    <circle cx="186" cy="248" r="24"/>
+    <circle cx="256" cy="248" r="24"/>
+    <circle cx="326" cy="248" r="24"/>
+  </g>
+</svg>
