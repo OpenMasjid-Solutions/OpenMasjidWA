@@ -32,6 +32,14 @@ services:
       - PORT=2785
       - LOG_LEVEL=info
 
+      # WhatsApp privacy ids (@lid) carry no phone number. OpenMasjidOS identifies a
+      # command sender by their number, so without this a lid-addressed sender cannot be
+      # matched to the authorised list at all. Resolution is a cached, best-effort engine
+      # lookup, only for privacy-id senders — normal numbers are untouched.
+      # Upstream defaults it OFF and reads the exact string "true"
+      # (feature-flags.ts: `env.RESOLVE_LID_TO_PHONE === 'true'`).
+      - RESOLVE_LID_TO_PHONE=true
+
       # ── Auth ────────────────────────────────────────────────────────────────
       # Seeds OpenWA's first API key on FIRST BOOT (auth.service.ts:resolveSeedApiKey).
       # The admin types the same value into OpenMasjidOS > Settings > WhatsApp, which
