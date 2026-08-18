@@ -4,13 +4,13 @@
 # NOTE ON VERSIONS: `version` here is the version of THIS PACKAGING, not of OpenWA.
 # OpenWA's own version is pinned in docker-compose.yml (image tag + @sha256 digest).
 # On the dev branch this must be a prerelease AHEAD of the stable release — stable
-# 0.1.0, dev 0.2.0-dev.1 — or the catalog's freshness floor falls the dev entry back
+# 0.2.0, dev 0.3.0-dev.1 — or the catalog's freshness floor falls the dev entry back
 # to stable. See OpenMasjidAPPS CLAUDE.md §3b.
 id: openwa
 name: WhatsApp Gateway
 tagline: Let the masjid send WhatsApp messages from a number of its own
 category: utilities
-version: 0.2.0
+version: 0.3.0-dev.1
 author: rmyndharis (OpenWA) — packaged for OpenMasjidOS by OpenMasjid-Solutions
 license: MIT
 icon: icon.svg
