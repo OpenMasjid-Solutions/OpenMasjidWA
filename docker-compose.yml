@@ -17,8 +17,8 @@
 services:
   openwa:
     # Digest-pinned: the tag alone can be moved to different content.
-    # ghcr.io/rmyndharis/openwa:0.31.0
-    image: ghcr.io/rmyndharis/openwa:0.31.0@sha256:cfa076443c09d5cb7add0b8b446dc4aee857374e8af8168d376fdacc926d599d
+    # ghcr.io/rmyndharis/openwa:0.32.0
+    image: ghcr.io/rmyndharis/openwa:0.32.0@sha256:8e2d993cfea4bfbedd291e2e5c14e36c5a898565c5acc75617f8fd630d916cbe
     restart: unless-stopped
     # The web UI and the REST API are the same port. OpenMasjidOS reads the FIRST
     # published port to find the gateway, so this must stay first and stay published.
